@@ -3,13 +3,15 @@
 @charset "utf-8";
 
 // Our variables
-$body-font-family: "Open Sans", serif, Helvetica, Arial, sans-serif;
+$body-font-family: "Open Sans", Helvetica, Arial, sans-serif;
 $header-font-family: $body-font-family;
 $label-font-family: $body-font-family;
 $serif-font-family: "DejaVuSerif", serif;
 $mono-font-family: Consolas, "Liberation Mono", Courier, monospace;
 
 $body-font-size:   14px;
+$body-font-weight: normal;
+$body-font-style: normal;
 $small-font-size:  $body-font-size * 0.875;
 $base-line-height: 1.5;
 $cursor-auto-value: auto;
