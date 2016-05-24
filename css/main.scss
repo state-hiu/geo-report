@@ -3,7 +3,7 @@
 @charset "utf-8";
 
 // Our variables
-$body-font-family: "Open Sans", serif, Helvetica, Arial, sans-serif;
+$body-font-family: "Avenir", "Open Sans", Helvetica, Arial, sans-serif;
 $header-font-family: $body-font-family;
 $label-font-family: $body-font-family;
 $serif-font-family: "DejaVuSerif", serif;
@@ -62,19 +62,26 @@ $on-laptop:        800px;
 @import
         "normalize",
         "foundation",
-        "padding-margin"
+        "padding-margin",
+        "legends-tooltips"
 ;
 //////////////////////////////////////////////////////
 /////////////// Custom Code //////////////////////////
 //////////////////////////////////////////////////////
 
-body { margin:0; padding:0; min-width: 940px; }
-#report-container { position: absolute; top:41px; bottom:0; }
+body {
+  margin:0;
+  padding:0;
+  min-width: 940px;
+  word-wrap: break-word;
+}
+
+#report-container { position: absolute; top:58px; bottom:0; }
 #map { position:absolute; top: 0; bottom:0; right: 0; }
 
 #report {
   position: absolute; top: 0; bottom: 0; overflow: scroll;
-  section { min-height: 100%; opacity: 0.2; margin-bottom: 40px; }
+  section { min-height: 70%; opacity: 0.2; margin-bottom: 40px; }
   section.active { opacity: 1; }
   img { display: block; margin: 2px auto 12px; }
   h1 { font-size: 2rem; }
@@ -84,6 +91,9 @@ body { margin:0; padding:0; min-width: 940px; }
 }
 
 nav {
+  .logo a{ color: #fff; }
+  .logo a span{ color: $secondary-color; }
+  .logo a:hover span{ color: $primary-color; }
   a { color: $secondary-color; }
   a:hover { color: $primary-color; }
   h3{ margin-bottom: 0; }
@@ -91,17 +101,25 @@ nav {
 }
 
 figure{ margin: 12px 0 22px; }
-figcaption {
+figcaption,
+figcaption p,
+figcaption a {
   font-size: 0.65rem;
   color: $grey-color-light;
   margin-bottom: 6px;
-}
+  }
+  figcaption p { display: inline; }
+  figcaption a { text-decoration: underline; }
 
 .serif { font-family: $serif-font-family; }
 
 .small { font-size: $small-font-size; }
 .tiny { font-size: $tiny-font-size; }
-.quiet { color: $grey-color-light; }
+.quiet {
+  color: $grey-color-light;
+  h1,h2,h3,h4,h5,h6 { color: $grey-color-light; }
+}
+
 
 .center { text-align: center; }
 
