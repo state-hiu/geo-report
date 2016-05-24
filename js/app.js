@@ -46,8 +46,8 @@ $(document).foundation();
         reportControls: {
           zoom: L.control.zoom({position: 'topleft'}).addTo(this.map),
           scale: L.control.scale({position: 'bottomleft'}).addTo(this.map),
+          legend: L.mapbox.legendControl().addLegend('<h2 class="center keyline-bottom serif">Legend</h2><div id="legend-contents"></div>').addTo(this.map),
           infoControl: infoControl.addTo(this.map),
-          legend: L.mapbox.legendControl().addLegend('<h3 class="center keyline-bottom">Legend</h3><div class="legend-contents"></div>').addTo(this.map),
           grid: undefined,
           share: shareControl.addTo(this.map)
         }
@@ -89,15 +89,18 @@ $(document).foundation();
           displayedLayerIds = report.getLayers(),
           displayedVectorId = report.getVector();
 
-      if(nav){
+      if(nav && nav.latlng.length === 2 && nav.zoom){
         report.map.setView(nav.latlng, nav.zoom);
+      }else if(nav && nav.latlng.length === 2){
+        report.map.panTo(nav.latlng);
+      }else if(nav && nav.zoom){
+        report.map.setZoom(nav.zoom);
       }
 
       if(newLayerIds){
         newLayerIds = newLayerIds.split(',');
 
         // for all existing layers, remove it unless it is present in newLayerIds
-        // recover something here?
         for(i=0; i<displayedLayerIds.length; i++){
           var displayedLayerId = displayedLayerIds[i];
           if(newLayerIds.indexOf(displayedLayerId) === -1){
@@ -148,14 +151,60 @@ $(document).foundation();
       if(! report.map.reportVectors[newVectorId]){
         // if not cached, cache and add
         $.getJSON('data/' + newVectorId + '.geojson', function(geojson){
-          report.map.reportVectors[newVectorId] = L.mapbox.featureLayer(geojson).addTo(report.map);
+          // report.map.reportVectors[newVectorId] = L.mapbox.featureLayer(geojson).addTo(report.map);
+          var mineLayer = L.mapbox.featureLayer(geojson).eachLayer(function(marker){
+            // set icon style for all icons
+            var markerOptions = {
+              'marker-color': '#EE8433',
+              'marker-size': 'small'
+            };
+            // set property-specific icons
+            var markerProperties = marker.toGeoJSON().properties
+            if(markerProperties['MINERAL_1'] === 'Cassiterite'){
+              markerOptions['marker-symbol'] = 'c';
+            }else if(markerProperties['MINERAL_1'] === 'Diamond'){
+              markerOptions['marker-symbol'] = 'd';
+            }else if(markerProperties['MINERAL_1'] === 'Gold'){
+              markerOptions['marker-symbol'] = 'g';
+            }else if(markerProperties['MINERAL_1'] === 'Wolframite'){
+              markerOptions['marker-symbol'] = 'w';
+            }
+            marker.setIcon(L.mapbox.marker.icon(markerOptions));
+            marker.bindPopup(['<strong>Name: </strong>', markerProperties['NAME'], '<br>',
+                              '<strong>Resource: </strong>', markerProperties['MINERAL_1'], '<br>',
+                              '<strong>Armed Group: </strong>', markerProperties['ARMED_GROU']].join('')
+                            );
+          });
+
+          var mineCluster = new L.MarkerClusterGroup({
+            // iconCreateFunction: function(cluster){
+            //   return new L.mapbox.marker.icon({
+            //     'marker-symbol': cluster.getChildCount(),
+            //     'marker-size': 'small',
+            //     'marker-color': '#F0AD77'
+            //   })
+            // },
+            polygonOptions: {
+              fillColor: '#F0AD77',
+              color: '#81461a',
+              weight: 3,
+              opacity: 0.8,
+              fillOpacity: 0.4
+            }
+          });
+
+          mineCluster.addLayer(mineLayer);
+          report.map.reportVectors[newVectorId] = mineCluster.addTo(report.map);
+          report.showLegend(newVectorId);
         });
       }else{
         // else, add or remove
         if(report.map.hasLayer(report.map.reportVectors[newVectorId])){
           report.map.removeLayer(report.map.reportVectors[newVectorId]);
+          report.removeLegend(newVectorId);
         }else{
           report.map.reportVectors[newVectorId].addTo(report.map);
+          report.showLegend(newVectorId);
         }
       }
 
@@ -168,21 +217,37 @@ $(document).foundation();
       if(! report.map.reportLayers[newLayerId]){
         // construct tilelayer url template out of baseUrl and newLayerId
         var layerURL = pageConfig.baseUrl.replace('{layerId}', newLayerId);
-        report.map.reportLayers[newLayerId] = L.tileLayer(layerURL, {tms: true});
+        report.map.reportLayers[newLayerId] = L.tileLayer(layerURL);
       }
       var tileLayer = this.map.reportLayers[newLayerId];
 
       // if layer is present, run all remove layer actions
-      // Recover grid and legend insertions/deletions here
       if(this.map.hasLayer(tileLayer)){
+        var layers = this.getLayers();
         this.map.removeLayer(tileLayer);
+        this.removeLegend(newLayerId);
+
+        // if removed layer was highest layer, clear grids
+        if(newLayerId === layers[layers.length -1]){
+          this.clearGrids();
+          // if 1+ more layers on map, add grid of the new top layer
+          if(layers.length > 1){
+            var nextLayerId = layers[layers.length -2];
+            report.addGrid(nextLayerId);
+          }
+        }
       }else{
-        // find zIndex of current top layer, or -1 if no current layers
+        // run all add layer actions:
+          // add layer to map; add legend; add grid
         var layers = this.getLayers(),
             topLayerZIndex = this.getLayerZIndex(layers[layers.length -1]);
 
         this.map.addLayer(tileLayer);
         tileLayer.setZIndex(topLayerZIndex + 1);
+
+        report.showLegend(newLayerId);
+        report.clearGrids();
+        report.addGrid(newLayerId);
       }
     },
 
@@ -228,16 +293,20 @@ $(document).foundation();
     },
 
     showLegend: function(mapId){
-      var legendContents = $(report.map.reportControls.legend.getContainer()).find('.legend-contents');
-      $('<div>', {
-                  'class': 'report-legend space-bottom1',
-                  'data-id': mapId,
-                  html: mapId
-      }).prependTo(legendContents);
+      var legendContents = $(report.map.reportControls.legend.getContainer()).find('#legend-contents'),
+          legendStorage = $('#legendStorage');
+
+      legendContents.prepend(legendStorage.find('[data-id="' + mapId + '"]') );
+      // $('<div>', {
+      //             'class': 'moabi-legend space-bottom1',
+      //             'data-id': mapId,
+      //             html: mapId
+      // }).prependTo(legendContents);
     },
 
     removeLegend: function(mapId){
-      $(report.map.reportControls.legend.getContainer()).find('.report-legend[data-id="' + mapId + '"]').remove();
+      var legend = $(report.map.reportControls.legend.getContainer()).find('.moabi-legend[data-id="' + mapId + '"]');
+      $('#legendStorage').prepend(legend);
     },
 
     addGrid: function(mapId){
